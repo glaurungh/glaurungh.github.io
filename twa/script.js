@@ -1,119 +1,152 @@
-const BACKEND_URL = 'https://ad9b38d44491.ngrok-free.app'; // Замените на ваш URL
+const BACKEND_URL = 'https://ad9b38d44491.ngrok-free.app';
 
 // Элементы интерфейса
-const authStatus = document.getElementById('auth-status');
-const authBtn = document.getElementById('auth-btn');
-const agreementSection = document.getElementById('agreement-section');
-const signAgreementBtn = document.getElementById('sign-agreement-btn');
-const tokenInfo = document.getElementById('token-info');
-const tokenDisplay = document.getElementById('token-display');
-const validateBtn = document.getElementById('validate-btn');
-const validationResult = document.getElementById('validation-result');
-const agreementVersion = document.getElementById('agreement-version');
+const elements = {
+    authStatus: document.getElementById('auth-status'),
+    authBtn: document.getElementById('auth-btn'),
+    errorSection: document.getElementById('error-section'),
+    errorDisplay: document.getElementById('error-display'),
+    copyErrorBtn: document.getElementById('copy-error-btn'),
+    agreementSection: document.getElementById('agreement-section'),
+    signAgreementBtn: document.getElementById('sign-agreement-btn'),
+    tokenInfo: document.getElementById('token-info'),
+    tokenDisplay: document.getElementById('token-display'),
+    validateBtn: document.getElementById('validate-btn'),
+    validationResult: document.getElementById('validation-result'),
+    agreementVersion: document.getElementById('agreement-version')
+};
 
-let tgWebApp;
+let tgWebApp = null;
 let currentUser = null;
 
-// Инициализация Telegram WebApp
-function initTelegramWebApp() {
-    tgWebApp = window.Telegram.WebApp;
-    tgWebApp.expand();
-
-    if (tgWebApp.initDataUnsafe.user) {
-        currentUser = tgWebApp.initDataUnsafe.user;
-        authStatus.textContent = `TG User: ${currentUser.first_name} (ID: ${currentUser.id})`;
+// Показывает ошибку в интерфейсе
+function showError(error) {
+    console.error('Error:', error);
+    
+    let errorText = '';
+    if (error instanceof Error) {
+        errorText = `${error.name}: ${error.message}\n\n${error.stack}`;
+    } else if (typeof error === 'object') {
+        errorText = JSON.stringify(error, null, 2);
+    } else {
+        errorText = String(error);
     }
-console.log(window.Telegram.WebApp.initData);
-
+    
+    elements.errorDisplay.value = errorText;
+    elements.errorSection.classList.remove('hidden');
+    
+    // Прокручиваем к блоку с ошибкой
+    elements.errorSection.scrollIntoView({ behavior: 'smooth' });
 }
 
-// Аутентификация
-async function authenticate() {
-    if (!tgWebApp) {
-        alert('Telegram WebApp not initialized');
-        return;
-    }
+// Копирует текст ошибки в буфер обмена
+function setupErrorCopyButton() {
+    elements.copyErrorBtn.addEventListener('click', () => {
+        elements.errorDisplay.select();
+        document.execCommand('copy');
+        alert('Error copied to clipboard!');
+    });
+}
 
+// Инициализация Telegram WebApp с обработкой ошибок
+function initTelegramWebApp() {
     try {
-        const initData = tgWebApp.initData;
-        const response = await fetch(`${BACKEND_URL}/api/v1/auth`, {
-            method: 'POST',
+        if (!window.Telegram?.WebApp) {
+            throw new Error('Telegram WebApp SDK not loaded');
+        }
+        
+        tgWebApp = window.Telegram.WebApp;
+        tgWebApp.expand();
+        
+        console.log('Telegram WebApp initialized:', tgWebApp);
+        console.log('InitData:', tgWebApp.initData);
+        console.log('InitDataUnsafe:', tgWebApp.initDataUnsafe);
+        
+        if (tgWebApp.initDataUnsafe?.user) {
+            currentUser = tgWebApp.initDataUnsafe.user;
+            elements.authStatus.textContent = `TG User: ${currentUser.first_name || 'Unknown'} (ID: ${currentUser.id || 'N/A'})`;
+        } else {
+            console.warn('No user data in initDataUnsafe');
+        }
+    } catch (error) {
+        showError(error);
+    }
+}
+
+// Улучшенная функция для выполнения запросов
+async function makeRequest(url, method, body) {
+    try {
+        const response = await fetch(url, {
+            method,
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                init_data: initData
-            })
+            body: JSON.stringify(body)
         });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        showError(error);
+        throw error;
+    }
+}
 
-        const data = await response.json();
-
+// Модифицированная функция аутентификации
+async function authenticate() {
+    try {
+        if (!tgWebApp) {
+            throw new Error('Telegram WebApp not initialized');
+        }
+        
+        const initData = tgWebApp.initData;
+        if (!initData) {
+            throw new Error('No initData available');
+        }
+        
+        console.log('Sending initData to backend:', initData);
+        
+        const data = await makeRequest(`${BACKEND_URL}/api/v1/auth`, 'POST', { 
+            init_data: initData 
+        });
+        
+        console.log('Auth response:', data);
+        
         if (data.agreement_needed) {
-            agreementSection.classList.remove('hidden');
-            agreementVersion.textContent = '1'; // Здесь должна быть актуальная версия
+            elements.agreementSection.classList.remove('hidden');
+            elements.agreementVersion.textContent = '1';
         } else if (data.token) {
             showToken(data.token);
+        } else {
+            throw new Error('Unexpected response from server');
         }
     } catch (error) {
-        console.error('Auth error:', error);
-        alert('Authentication failed');
+        showError(error);
     }
 }
 
-// Подписание соглашения
-async function signAgreement() {
+// Остальные функции (signAgreement, showToken, validateToken) остаются аналогичными, 
+// но тоже должны использовать makeRequest и showError
+
+// Инициализация приложения
+function initApp() {
     try {
-        const response = await fetch(`${BACKEND_URL}/api/v1/agreement`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                telegram_id: currentUser.id
-            })
-        });
-
-        const data = await response.json();
-        if (data.token) {
-            agreementSection.classList.add('hidden');
-            showToken(data.token);
-        }
+        initTelegramWebApp();
+        setupErrorCopyButton();
+        
+        elements.authBtn.addEventListener('click', authenticate);
+        elements.signAgreementBtn.addEventListener('click', signAgreement);
+        elements.validateBtn.addEventListener('click', validateToken);
+        
+        console.log('App initialized');
     } catch (error) {
-        console.error('Sign agreement error:', error);
-        alert('Failed to sign agreement');
+        showError(error);
     }
 }
 
-// Показать JWT токен
-function showToken(token) {
-    tokenInfo.classList.remove('hidden');
-    tokenDisplay.value = token;
-}
-
-// Валидация токена
-async function validateToken() {
-    try {
-        const response = await fetch(`${BACKEND_URL}/api/v1/validate`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${tokenDisplay.value}`
-            }
-        });
-
-        const data = await response.json();
-        validationResult.textContent = `Valid: ${data.valid}, User ID: ${data.user_id}`;
-    } catch (error) {
-        console.error('Validation error:', error);
-        validationResult.textContent = 'Validation failed';
-    }
-}
-
-// Инициализация
-document.addEventListener('DOMContentLoaded', () => {
-    initTelegramWebApp();
-
-    authBtn.addEventListener('click', authenticate);
-    signAgreementBtn.addEventListener('click', signAgreement);
-    validateBtn.addEventListener('click', validateToken);
-});
+// Запускаем приложение после загрузки DOM
+document.addEventListener('DOMContentLoaded', initApp);

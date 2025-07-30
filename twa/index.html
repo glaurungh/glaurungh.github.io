@@ -11,6 +11,14 @@
     <h1>TG Auth Test</h1>
     <div id="auth-status">Not authenticated</div>
     <button id="auth-btn">Authenticate via Telegram</button>
+    
+    <!-- Добавленный блок для отображения ошибок -->
+    <div id="error-section" class="hidden">
+        <h3>Error Details</h3>
+        <textarea id="error-display" readonly></textarea>
+        <button id="copy-error-btn">Copy Error</button>
+    </div>
+    
     <div id="agreement-section" class="hidden">
         <h3>User Agreement (v<span id="agreement-version"></span>)</h3>
         <textarea readonly>Terms and conditions...</textarea>
