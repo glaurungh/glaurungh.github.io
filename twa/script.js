@@ -1,4 +1,4 @@
-const BACKEND_URL = 'https://ad9b38d44491.ngrok-free.app';
+const BACKEND_URL = 'https://a4686cea7778.ngrok-free.app';
 
 // Состояние приложения
 const state = {
