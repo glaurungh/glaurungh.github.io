@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>TG Auth Tester 2</title>
+    <title>TG Auth Tester 3</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="style.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
 <div class="container">
-    <h1>TG Auth Test</h1>
+    <h1>TG Auth Test 3</h1>
     <div id="auth-status">Not authenticated</div>
     <button id="auth-btn">Authenticate via Telegram</button>
     
@@ -38,23 +38,31 @@
     <pre id="debug-output" style="display: none; background: white; padding: 10px; border: 1px solid #ddd;"></pre>
 </div>
 
+<div id="network-debug" style="margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 5px;">
+    <h3>Network Debug</h3>
+    <button id="inspect-request">Inspect Last Request</button>
+    <pre id="network-output" style="display: none; background: white; padding: 10px; border: 1px solid #ddd;"></pre>
+</div>
+
 <script>
-document.getElementById('show-debug-btn').addEventListener('click', () => {
-    const debugOutput = document.getElementById('debug-output');
-    debugOutput.style.display = debugOutput.style.display === 'none' ? 'block' : 'none';
+// Отладка сетевых запросов
+let lastRequest = null;
+
+document.getElementById('inspect-request').addEventListener('click', () => {
+    const output = document.getElementById('network-output');
+    output.style.display = output.style.display === 'none' ? 'block' : 'none';
     
-    if (debugOutput.style.display === 'block') {
-        debugOutput.textContent = JSON.stringify({
-            initData: window.Telegram?.WebApp?.initData,
-            initDataUnsafe: window.Telegram?.WebApp?.initDataUnsafe,
-            lastRequest: window.lastRequest,
-            lastResponse: window.lastResponse,
-            localStorage: {
-                last_tg_init_data: localStorage.getItem('last_tg_init_data')
-            }
-        }, null, 2);
+    if (output.style.display === 'block' && lastRequest) {
+        output.textContent = JSON.stringify(lastRequest, null, 2);
     }
 });
+
+// Модифицируем makeRequest для сохранения запросов
+const originalMakeRequest = window.makeRequest;
+window.makeRequest = async function(url, method, body) {
+    lastRequest = { url, method, body, timestamp: new Date().toISOString() };
+    return originalMakeRequest(url, method, body);
+};
 </script>
 </body>
 </html>

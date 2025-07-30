@@ -27,24 +27,24 @@ const elements = {
 let tgWebApp = null;
 let currentUser = null;
 
-// Показывает ошибку в интерфейсе
+// Улучшенный обработчик ошибок
 function showError(error) {
     console.error('Error:', error);
+    const errorContainer = document.getElementById('error-section');
+    const errorText = document.getElementById('error-display');
     
-    let errorText = '';
+    let errorMessage = 'Unknown error';
     if (error instanceof Error) {
-        errorText = `${error.name}: ${error.message}\n\n${error.stack}`;
+        errorMessage = `${error.name}: ${error.message}\n\nStack: ${error.stack}`;
     } else if (typeof error === 'object') {
-        errorText = JSON.stringify(error, null, 2);
+        errorMessage = JSON.stringify(error, null, 2);
     } else {
-        errorText = String(error);
+        errorMessage = String(error);
     }
     
-    elements.errorDisplay.value = errorText;
-    elements.errorSection.classList.remove('hidden');
-    
-    // Прокручиваем к блоку с ошибкой
-    elements.errorSection.scrollIntoView({ behavior: 'smooth' });
+    errorText.value = errorMessage;
+    errorContainer.classList.remove('hidden');
+    errorContainer.scrollIntoView({ behavior: 'smooth' });
 }
 
 // Копирует текст ошибки в буфер обмена
@@ -56,36 +56,30 @@ function setupErrorCopyButton() {
     });
 }
 
-// Инициализация Telegram WebApp с подробным логированием
+
+// Инициализация Telegram WebApp
 function initTelegramWebApp() {
     try {
         if (!window.Telegram?.WebApp) {
             throw new Error('Telegram WebApp SDK not loaded');
         }
         
-        state.tgWebApp = window.Telegram.WebApp;
-        state.tgWebApp.expand();
+        const tg = window.Telegram.WebApp;
+        tg.expand();
         
-        console.log('[DEBUG] Telegram WebApp initialized:', {
-            platform: state.tgWebApp.platform,
-            initData: state.tgWebApp.initData,
-            initDataUnsafe: state.tgWebApp.initDataUnsafe,
-            version: state.tgWebApp.version
+        console.log('Telegram WebApp initialized:', {
+            platform: tg.platform,
+            version: tg.version,
+            initData: tg.initData,
+            unsafeData: tg.initDataUnsafe
         });
         
-        if (state.tgWebApp.initDataUnsafe?.user) {
-            state.currentUser = state.tgWebApp.initDataUnsafe.user;
-            document.getElementById('auth-status').textContent = 
-                `TG User: ${state.currentUser.first_name || 'Unknown'} (ID: ${state.currentUser.id || 'N/A'})`;
-        }
-        
-        // Сохраняем данные для отладки
-        localStorage.setItem('last_tg_init_data', state.tgWebApp.initData);
+        return tg;
     } catch (error) {
-        showError('Telegram init error:', error);
+        showError(error);
+        return null;
     }
 }
-
 // Улучшенный запрос с логированием
 async function makeAuthenticatedRequest() {
     if (!state.tgWebApp?.initData) {
@@ -143,7 +137,7 @@ async function makeAuthenticatedRequest() {
 }
 
 
-// Улучшенная функция для выполнения запросов
+// Безопасный JSON-запрос
 async function makeRequest(url, method, body) {
     try {
         const response = await fetch(url, {
@@ -166,33 +160,40 @@ async function makeRequest(url, method, body) {
     }
 }
 
-// Модифицированная функция аутентификации
+
+// Основная функция аутентификации
 async function authenticate() {
+    const tg = window.Telegram?.WebApp;
+    if (!tg) {
+        showError('Telegram WebApp not initialized');
+        return;
+    }
+    
     try {
-        if (!tgWebApp) {
-            throw new Error('Telegram WebApp not initialized');
-        }
-        
-        const initData = tgWebApp.initData;
+        // 1. Подготовка данных
+        const initData = tg.initData;
         if (!initData) {
-            throw new Error('No initData available');
+            throw new Error('Telegram initData is empty');
         }
         
-        console.log('Sending initData to backend:', initData);
+        console.log('Sending initData:', initData);
         
-        const data = await makeRequest(`${BACKEND_URL}/api/v1/auth`, 'POST', { 
-            init_data: initData 
-        });
+        // 2. Отправка запроса
+        const response = await makeRequest(
+            `${BACKEND_URL}/api/v1/auth`,
+            'POST',
+            { init_data: initData }
+        );
         
-        console.log('Auth response:', data);
+        console.log('Auth response:', response);
         
-        if (data.agreement_needed) {
-            elements.agreementSection.classList.remove('hidden');
-            elements.agreementVersion.textContent = '1';
-        } else if (data.token) {
-            showToken(data.token);
-        } else {
-            throw new Error('Unexpected response from server');
+        // 3. Обработка ответа
+        if (response.agreement_needed) {
+            document.getElementById('agreement-section').classList.remove('hidden');
+            document.getElementById('agreement-version').textContent = '1';
+        } else if (response.token) {
+            document.getElementById('token-display').value = response.token;
+            document.getElementById('token-info').classList.remove('hidden');
         }
     } catch (error) {
         showError(error);
@@ -308,30 +309,19 @@ async function validateToken() {
 }
 
 // Инициализация приложения
-function initApp() {
-    try {
-        initTelegramWebApp();
-        setupErrorCopyButton();
-        
-        elements.authBtn.addEventListener('click', authenticate);
-        elements.signAgreementBtn.addEventListener('click', signAgreement);
-        elements.validateBtn.addEventListener('click', validateToken);
-        
-        console.log('App initialized');
-    } catch (error) {
-        showError(error);
-    }
-}
-
-// Инициализация при загрузке
 document.addEventListener('DOMContentLoaded', () => {
-    initTelegramWebApp();
+    // Инициализация Telegram
+    const tg = initTelegramWebApp();
     
-    document.getElementById('auth-btn').addEventListener('click', handleAuthentication);
+    // Настройка кнопок
+    document.getElementById('auth-btn').addEventListener('click', authenticate);
     document.getElementById('copy-error-btn').addEventListener('click', () => {
         navigator.clipboard.writeText(document.getElementById('error-display').value)
-            .then(() => alert('Текст ошибки скопирован!'));
+            .then(() => alert('Error copied to clipboard!'));
     });
     
-    console.log('Application initialized');
+    // Кнопка соглашения (заглушка)
+    document.getElementById('sign-agreement-btn').addEventListener('click', () => {
+        alert('Agreement signed!');
+    });
 });
