@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>TG Auth Tester</title>
+    <title>TG Auth Tester 2</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="style.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -32,5 +32,29 @@
     </div>
 </div>
 <script src="script.js"></script>
+<div id="debug-panel" style="margin-top: 20px; padding: 10px; background: #f5f5f5; border-radius: 5px;">
+    <h3>Debug Information</h3>
+    <button id="show-debug-btn">Show Debug Data</button>
+    <pre id="debug-output" style="display: none; background: white; padding: 10px; border: 1px solid #ddd;"></pre>
+</div>
+
+<script>
+document.getElementById('show-debug-btn').addEventListener('click', () => {
+    const debugOutput = document.getElementById('debug-output');
+    debugOutput.style.display = debugOutput.style.display === 'none' ? 'block' : 'none';
+    
+    if (debugOutput.style.display === 'block') {
+        debugOutput.textContent = JSON.stringify({
+            initData: window.Telegram?.WebApp?.initData,
+            initDataUnsafe: window.Telegram?.WebApp?.initDataUnsafe,
+            lastRequest: window.lastRequest,
+            lastResponse: window.lastResponse,
+            localStorage: {
+                last_tg_init_data: localStorage.getItem('last_tg_init_data')
+            }
+        }, null, 2);
+    }
+});
+</script>
 </body>
 </html>

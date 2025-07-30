@@ -1,5 +1,13 @@
 const BACKEND_URL = 'https://ad9b38d44491.ngrok-free.app';
 
+// Состояние приложения
+const state = {
+    tgWebApp: null,
+    currentUser: null,
+    lastRequest: null,
+    lastResponse: null
+};
+
 // Элементы интерфейса
 const elements = {
     authStatus: document.getElementById('auth-status'),
@@ -48,30 +56,92 @@ function setupErrorCopyButton() {
     });
 }
 
-// Инициализация Telegram WebApp с обработкой ошибок
+// Инициализация Telegram WebApp с подробным логированием
 function initTelegramWebApp() {
     try {
         if (!window.Telegram?.WebApp) {
             throw new Error('Telegram WebApp SDK not loaded');
         }
         
-        tgWebApp = window.Telegram.WebApp;
-        tgWebApp.expand();
+        state.tgWebApp = window.Telegram.WebApp;
+        state.tgWebApp.expand();
         
-        console.log('Telegram WebApp initialized:', tgWebApp);
-        console.log('InitData:', tgWebApp.initData);
-        console.log('InitDataUnsafe:', tgWebApp.initDataUnsafe);
+        console.log('[DEBUG] Telegram WebApp initialized:', {
+            platform: state.tgWebApp.platform,
+            initData: state.tgWebApp.initData,
+            initDataUnsafe: state.tgWebApp.initDataUnsafe,
+            version: state.tgWebApp.version
+        });
         
-        if (tgWebApp.initDataUnsafe?.user) {
-            currentUser = tgWebApp.initDataUnsafe.user;
-            elements.authStatus.textContent = `TG User: ${currentUser.first_name || 'Unknown'} (ID: ${currentUser.id || 'N/A'})`;
-        } else {
-            console.warn('No user data in initDataUnsafe');
+        if (state.tgWebApp.initDataUnsafe?.user) {
+            state.currentUser = state.tgWebApp.initDataUnsafe.user;
+            document.getElementById('auth-status').textContent = 
+                `TG User: ${state.currentUser.first_name || 'Unknown'} (ID: ${state.currentUser.id || 'N/A'})`;
         }
+        
+        // Сохраняем данные для отладки
+        localStorage.setItem('last_tg_init_data', state.tgWebApp.initData);
     } catch (error) {
-        showError(error);
+        showError('Telegram init error:', error);
     }
 }
+
+// Улучшенный запрос с логированием
+async function makeAuthenticatedRequest() {
+    if (!state.tgWebApp?.initData) {
+        throw new Error('Telegram initData not available');
+    }
+    
+    const requestData = {
+        init_data: state.tgWebApp.initData,
+        debug_info: {
+            timestamp: new Date().toISOString(),
+            user_agent: navigator.userAgent
+        }
+    };
+    
+    state.lastRequest = requestData;
+    
+    console.log('[DEBUG] Sending to server:', {
+        url: `${BACKEND_URL}/api/v1/auth`,
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Request': 'true'
+        },
+        body: requestData
+    });
+    
+    try {
+        const response = await fetch(`${BACKEND_URL}/api/v1/auth`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Debug-Request': 'true'
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        const data = await response.json().catch(() => ({}));
+        state.lastResponse = { status: response.status, data };
+        
+        if (!response.ok) {
+            console.error('[DEBUG] Server response error:', {
+                status: response.status,
+                statusText: response.statusText,
+                data
+            });
+            
+            throw new Error(data.error || `HTTP ${response.status}`);
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('[DEBUG] Request failed:', error);
+        throw error;
+    }
+}
+
 
 // Улучшенная функция для выполнения запросов
 async function makeRequest(url, method, body) {
@@ -154,6 +224,64 @@ async function signAgreement() {
     }
 }
 
+// Обработчик аутентификации с полной диагностикой
+async function handleAuthentication() {
+    try {
+        document.getElementById('error-section').classList.add('hidden');
+        
+        const result = await makeAuthenticatedRequest();
+        console.log('[DEBUG] Auth result:', result);
+        
+        if (result.agreement_needed) {
+            document.getElementById('agreement-section').classList.remove('hidden');
+            document.getElementById('agreement-version').textContent = '1';
+        } else if (result.token) {
+            showToken(result.token);
+        }
+    } catch (error) {
+        showDetailedError(error);
+        
+        // Дополнительная диагностика
+        const diagnosticInfo = {
+            timestamp: new Date().toISOString(),
+            error: error.toString(),
+            request: state.lastRequest,
+            response: state.lastResponse,
+            telegramData: state.tgWebApp?.initData,
+            localStorage: {
+                last_tg_init_data: localStorage.getItem('last_tg_init_data')
+            }
+        };
+        
+        console.error('[DIAGNOSTICS] Full error context:', diagnosticInfo);
+        document.getElementById('error-display').value = 
+            JSON.stringify(diagnosticInfo, null, 2);
+    }
+}
+
+// Показывает детализированную ошибку
+function showDetailedError(error) {
+    const errorContainer = document.getElementById('error-section');
+    const errorText = document.getElementById('error-display');
+    
+    let errorMessage = error.message || String(error);
+    
+    if (error.message.includes('invalid_telegram_data')) {
+        errorMessage += '\n\nВозможные причины:\n' +
+        '1. Неправильный BotToken на сервере\n' +
+        '2. Несоответствие хэша данных\n' +
+        '3. Проблемы с временем сервера (проверьте NTP)\n' +
+        '4. Измененный initData в процессе передачи';
+    }
+    
+    errorText.value = `ОШИБКА: ${errorMessage}\n\n` +
+        `Детали:\n${error.stack || 'Нет дополнительной информации'}`;
+    
+    errorContainer.classList.remove('hidden');
+    errorContainer.scrollIntoView({ behavior: 'smooth' });
+}
+
+
 // Показать JWT токен
 function showToken(token) {
     tokenInfo.classList.remove('hidden');
@@ -195,5 +323,15 @@ function initApp() {
     }
 }
 
-// Запускаем приложение после загрузки DOM
-document.addEventListener('DOMContentLoaded', initApp);
+// Инициализация при загрузке
+document.addEventListener('DOMContentLoaded', () => {
+    initTelegramWebApp();
+    
+    document.getElementById('auth-btn').addEventListener('click', handleAuthentication);
+    document.getElementById('copy-error-btn').addEventListener('click', () => {
+        navigator.clipboard.writeText(document.getElementById('error-display').value)
+            .then(() => alert('Текст ошибки скопирован!'));
+    });
+    
+    console.log('Application initialized');
+});
