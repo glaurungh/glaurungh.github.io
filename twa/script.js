@@ -1,4 +1,4 @@
-const BACKEND_URL = 'https://7b75c70b1e1c.ngrok-free.app'; // Замените на ваш URL
+const BACKEND_URL = 'https://ad9b38d44491.ngrok-free.app'; // Замените на ваш URL
 
 // Элементы интерфейса
 const authStatus = document.getElementById('auth-status');
