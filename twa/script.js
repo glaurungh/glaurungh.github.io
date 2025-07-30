@@ -23,6 +23,8 @@ function initTelegramWebApp() {
         currentUser = tgWebApp.initDataUnsafe.user;
         authStatus.textContent = `TG User: ${currentUser.first_name} (ID: ${currentUser.id})`;
     }
+console.log(window.Telegram.WebApp.initData);
+
 }
 
 // Аутентификация
