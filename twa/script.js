@@ -129,8 +129,55 @@ async function authenticate() {
     }
 }
 
-// Остальные функции (signAgreement, showToken, validateToken) остаются аналогичными, 
-// но тоже должны использовать makeRequest и showError
+
+// Подписание соглашения
+async function signAgreement() {
+    try {
+        const response = await fetch(`${BACKEND_URL}/api/v1/agreement`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                telegram_id: currentUser.id
+            })
+        });
+
+        const data = await response.json();
+        if (data.token) {
+            agreementSection.classList.add('hidden');
+            showToken(data.token);
+        }
+    } catch (error) {
+        console.error('Sign agreement error:', error);
+        alert('Failed to sign agreement');
+    }
+}
+
+// Показать JWT токен
+function showToken(token) {
+    tokenInfo.classList.remove('hidden');
+    tokenDisplay.value = token;
+}
+
+// Валидация токена
+async function validateToken() {
+    try {
+        const response = await fetch(`${BACKEND_URL}/api/v1/validate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${tokenDisplay.value}`
+            }
+        });
+
+        const data = await response.json();
+        validationResult.textContent = `Valid: ${data.valid}, User ID: ${data.user_id}`;
+    } catch (error) {
+        console.error('Validation error:', error);
+        validationResult.textContent = 'Validation failed';
+    }
+}
 
 // Инициализация приложения
 function initApp() {
