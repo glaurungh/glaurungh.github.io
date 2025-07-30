@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TG Auth Tester</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+<div class="container">
+    <h1>TG Auth Test</h1>
+    <div id="auth-status">Not authenticated</div>
+    <button id="auth-btn">Authenticate via Telegram</button>
+    <div id="agreement-section" class="hidden">
+        <h3>User Agreement (v<span id="agreement-version"></span>)</h3>
+        <textarea readonly>Terms and conditions...</textarea>
+        <button id="sign-agreement-btn">I Agree</button>
+    </div>
+    <div id="token-info" class="hidden">
+        <h3>JWT Token</h3>
+        <textarea id="token-display" readonly></textarea>
+        <button id="validate-btn">Validate Token</button>
+        <div id="validation-result"></div>
+    </div>
+</div>
+<script src="script.js"></script>
+</body>
+</html>
