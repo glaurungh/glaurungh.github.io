@@ -1,68 +1,36 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>TG Auth Tester 4</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Auth Tester</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="container">
-    <h1>TG Auth Test 4</h1>
-    <div id="auth-status">Not authenticated</div>
-    <button id="auth-btn">Authenticate via Telegram</button>
-    
-    <!-- Добавленный блок для отображения ошибок -->
-    <div id="error-section" class="hidden">
-        <h3>Error Details</h3>
-        <textarea id="error-display" readonly></textarea>
-        <button id="copy-error-btn">Copy Error</button>
+    <div class="container">
+        <h1>Тестер авторизации Telegram v.1</h1>
+        
+        <div class="section">
+            <h2>Полученные данные:</h2>
+            <textarea id="initData" readonly rows="8"></textarea>
+        </div>
+        
+        <div class="section">
+            <h2>Тестирование сервера:</h2>
+            <div class="form-group">
+                <label for="serverUrl">URL сервера авторизации:</label>
+                <input type="text" id="serverUrl" placeholder="https://ваш-сервер/authenticate">
+            </div>
+            <button id="sendBtn">Отправить на сервер</button>
+        </div>
+        
+        <div class="section">
+            <h2>Ответ сервера:</h2>
+            <div id="serverResponse" class="response"></div>
+        </div>
     </div>
     
-    <div id="agreement-section" class="hidden">
-        <h3>User Agreement (v<span id="agreement-version"></span>)</h3>
-        <textarea readonly>Terms and conditions...</textarea>
-        <button id="sign-agreement-btn">I Agree</button>
-    </div>
-    <div id="token-info" class="hidden">
-        <h3>JWT Token</h3>
-        <textarea id="token-display" readonly></textarea>
-        <button id="validate-btn">Validate Token</button>
-        <div id="validation-result"></div>
-    </div>
-</div>
-<script src="script.js"></script>
-<div id="debug-panel" style="margin-top: 20px; padding: 10px; background: #f5f5f5; border-radius: 5px;">
-    <h3>Debug Information</h3>
-    <button id="show-debug-btn">Show Debug Data</button>
-    <pre id="debug-output" style="display: none; background: white; padding: 10px; border: 1px solid #ddd;"></pre>
-</div>
-
-<div id="network-debug" style="margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 5px;">
-    <h3>Network Debug</h3>
-    <button id="inspect-request">Inspect Last Request</button>
-    <pre id="network-output" style="display: none; background: white; padding: 10px; border: 1px solid #ddd;"></pre>
-</div>
-
-<script>
-// Отладка сетевых запросов
-let lastRequest = null;
-
-document.getElementById('inspect-request').addEventListener('click', () => {
-    const output = document.getElementById('network-output');
-    output.style.display = output.style.display === 'none' ? 'block' : 'none';
-    
-    if (output.style.display === 'block' && lastRequest) {
-        output.textContent = JSON.stringify(lastRequest, null, 2);
-    }
-});
-
-// Модифицируем makeRequest для сохранения запросов
-const originalMakeRequest = window.makeRequest;
-window.makeRequest = async function(url, method, body) {
-    lastRequest = { url, method, body, timestamp: new Date().toISOString() };
-    return originalMakeRequest(url, method, body);
-};
-</script>
+    <script src="script.js"></script>
 </body>
 </html>
